@@ -1,7 +1,12 @@
 FROM node:bullseye AS web
 WORKDIR /ui
 COPY ui/package*.json ./
+# RUN npm install --global yarn
+# RUN npm upgrade --global yarn 
+RUN npm uninstall node-sass
+RUN npm i sass --save
 RUN yarn install
+
 COPY ui ./
 ENV NODE_OPTIONS=--openssl-legacy-provider
 RUN yarn run build
