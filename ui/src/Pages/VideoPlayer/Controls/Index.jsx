@@ -2,6 +2,7 @@ import { useContext, useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { skipToken } from "@reduxjs/toolkit/query/react";
 
+import { useHistory, useNavigate } from "react-router-dom";
 import { useGetMediaQuery } from "../../../api/v1/media";
 import { formatHHMMSS } from "../../../Helpers/utils";
 import { VideoPlayerContext } from "../Context";
@@ -32,8 +33,16 @@ function VideoControls() {
       : "unset";
   }, [overlay, visible]);
 
+  const navigate = useHistory();
+  const back = () => {
+    navigate.goBack();
+  }
+
+
   return (
+
     <div className={`videoControls ${visible}`}>
+      <div onClick={back} className={`back ${visible}`}><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path fill="none" d="M0 0h24v24H0z"/><path d="M12 10.586l4.95-4.95 1.414 1.414-4.95 4.95 4.95 4.95-1.414 1.414-4.95-4.95-4.95 4.95-1.414-1.414 4.95-4.95-4.95-4.95L7.05 5.636z"/></svg></div>
       <div className="name" ref={nameDiv}>
         <p>{media && media.name}</p>
         {media && media.episode && (

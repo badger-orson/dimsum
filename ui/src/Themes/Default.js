@@ -1,8 +1,8 @@
 const Default = {
   borderRadius: "10px",
   hoverCardWidth: "500px",
-  accentColor: "#f7931e",
-  accentLighterColor: "#dd9745",
+  accentColor: "#7103FA",
+  accentLighterColor: "#B071FF",
   accentTextColor: "#1a1a1a",
   criticalColor: "#e91619",
   criticalLighterColor: "#b72426",

@@ -29,6 +29,25 @@
       "next_ep"
       "controls";
     transition: background 200ms ease-in-out;
+    
+    .back {
+      width: fit-content;
+      background-color: var(--accentColor);
+      display: flex;
+      justify-content: center;
+      align-content: center;
+      border-radius: 100px;
+      position: fixed;
+      padding: 8px;
+      top: 24px;
+      right: 1.5rem;
+      &:hover {
+        background-color: #5c00ce;
+      }
+      svg {
+        width: 24px !important;
+      }
+    }
 
     .errorBox {
       position: absolute;
