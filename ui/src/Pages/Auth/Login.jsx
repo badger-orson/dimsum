@@ -28,8 +28,8 @@ function Login() {
     <div className="authForm">
       <header>
         <DimLogo />
-        <h1>Welcome back</h1>
-        <h3>Authenticate and continue to your media</h3>
+        <h1>Enter Matrix</h1>
+        <h3>Validate Identity</h3>
       </header>
       <div className="fields">
         <Field

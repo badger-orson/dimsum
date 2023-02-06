@@ -49,12 +49,8 @@ function Register(props) {
     <div className="authForm">
       <header>
         <DimLogo />
-        <h1>Welcome to Dim</h1>
-        {auth.admin_exists ? (
-          <h3>A media manager fueled by dark forces</h3>
-        ) : (
-          <h3>You are making an admin account</h3>
-        )}
+        <h1>Create Personal Matrix</h1>
+        {auth.admin_exists ? <h3>...</h3> : <h3>Create Matrix Identity</h3>}
       </header>
       <div className="fields">
         <Field

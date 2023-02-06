@@ -11,10 +11,13 @@ come in many forms. You could:
 
 All pull requests are code reviewed and tested by the CI. Note that unless you
 explicitly state otherwise, any contribution intentionally submitted for
-inclusion in PushEvent by you shall be licensed under the GNU GPLv2 License 
+inclusion in PushEvent by you shall be licensed under the GNU GPLv3 License 
 without any additional terms or conditions.
 
-## Contributors
+## DIMSUM Contributors
+[Orson Badger] (Forked due to difference in ideas and design language)
+
+## DIM Contributors
 Valerian G. (Lead Developer and maintainer) \
 [Valerian G.](https://github.com/vgarleanu)
 [eraychumal](https://github.com/eraychumak)
