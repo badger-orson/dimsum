@@ -24,14 +24,7 @@ async fn create_schema_db(db: &Db, file: &str) -> Result<(), sqlx::Error> {
         println!("Error reading {} (cause: {:?} )", file, ex);
         ex
     })?;
-// How do I skip if there is an error.., Obviously this does not exist yet...so its null...HMMM
-    let mut is_created = sqlx::query_as::<_,Dbcreated>(
-        r#"SELECT id FROM dbcreated"#
-    ).fetch_one(db).await?;
 
-    println!("IS DB Created already? {}", is_created.id);
-
-    if is_created.id == 0 {
         // Split the string at ";" then move to next sql statement store in vector
         let sqls: Vec<&str> = content.split(";").collect();
 
@@ -43,10 +36,7 @@ async fn create_schema_db(db: &Db, file: &str) -> Result<(), sqlx::Error> {
                 Err(ex) => println!("WARNING pexec sqlfile '{}' Failed cause: {}",file, ex),
             }
         }
-        } else {
-            println!("DB is created already {}, not recreating", is_created.id);
-    }
-
+    
     Ok(())
 }
 
@@ -58,6 +48,24 @@ fn create_connection_string(user: &str, pass: &str, database: &str) -> String {
     connection_string.push_str("@0.0.0.0:5432/");
     connection_string.push_str(database);
    return connection_string;
+}
+
+// Check to see if the 'library' table exists, if not we need to create our DB :D
+async fn table_exists(pool: &Pool<Postgres>, schema_name: &str, table_name: &str) -> sqlx::Result<bool> {
+    let exists: Option<bool> = sqlx::query_scalar(
+        r#"
+        SELECT EXISTS (
+            SELECT 1 
+            FROM information_schema.tables 
+            WHERE table_schema = $1 AND table_name = $2
+        )
+        "#)
+        .bind(schema_name)
+        .bind(table_name)
+        .fetch_one(pool)
+        .await?;
+
+    Ok(exists.unwrap_or(false))
 }
 
 
@@ -76,14 +84,22 @@ async fn main() -> Result<(), sqlx::Error> {
         .connect(&connection)
         .await?;
 
-    //After connecting to the DB ATTEMPT to run a select statement 
-
+    //Run test to see if the "library" table has already been created
+    let table_name = "library";
+    let schema_name = "public";
+    let table_exists = table_exists(&pool, schema_name, table_name).await?;
     
     println!("WE CONNECTED TO THE DB!!");
     
 // testread();
-    create_schema_db(&pool, SQL_RECREATE).await?;
 
-    println!("IF YOU DO NOT ANY ERRORS, LOOKS LIKE WE MADE THE TABLES :D");
+    if table_exists {
+        println!("Table exists!");
+    } else {
+        println!("Table does not exist.");
+        create_schema_db(&pool, SQL_RECREATE).await?;
+        println!("IF YOU DO NOT ANY ERRORS, LOOKS LIKE WE MADE THE TABLES :D");
+    }
+
     Ok(())
 }

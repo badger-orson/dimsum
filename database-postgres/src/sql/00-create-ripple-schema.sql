@@ -247,43 +247,63 @@ CREATE INDEX media_excl_ep_idx ON _tblmedia(name) WHERE NOT _tblmedia.media_type
 DROP INDEX media_excl_ep_idx;
 
 
-
 --TRIGGERs PREPARE TO GET TRIGGERED -- --
 
 
--- CREATE TRIGGER media_delete
--- INSTEAD OF DELETE ON media
--- AS
--- BEGIN
--- 	DELETE FROM _tblmedia WHERE _tblmedia.id = old.id;
--- END;
+CREATE OR REPLACE FUNCTION delete_season() RETURNS trigger AS $$
+BEGIN
+    DELETE FROM _tblseason WHERE _tblseason.id = OLD.id; \
+    RETURN OLD; \
+END; \
+$$ LANGUAGE plpgsql;
 
 -- CREATE TRIGGER season_delete
 -- INSTEAD OF DELETE ON season
+-- FOR EACH ROW
+-- EXECUTE FUNCTION delete_season();
+
+
+--
+
+-- CREATE OR REPLACE FUNCTION delete_media()
+-- RETURNS trigger AS $$
 -- BEGIN
---     DELETE FROM _tblseason WHERE _tblseason.id = old.id;
+--     DELETE FROM _tblmedia WHERE _tblmedia.id = OLD.id;
+--     RETURN OLD;
 -- END;
+-- $$ LANGUAGE plpgsql;
 
--- -- NEWEST SEASON_DELETE TRIGGER ---
--- CREATE TRIGGER season_delete
--- INSTEAD OF DELETE ON season
--- BEGIN DELETE FROM _tblseason WHERE _tblseason.id = old.id; END;
-
--- -- NEWEST MEDIA_DELETE TRIGGER ---
 -- CREATE TRIGGER media_delete
 -- INSTEAD OF DELETE ON media
--- BEGIN DELETE FROM _tblmedia WHERE _tblmedia.id = old.id; END;
+-- FOR EACH ROW
+-- EXECUTE FUNCTION delete_media();
 
--- -- Adds a delete trigger to both media_posters and media_backdrops which
--- -- ensure that the asset erased is also deleted from the assets table
--- CREATE TRIGGER IF NOT EXISTS media_backdrops_propagate
+-- 
+
+-- CREATE OR REPLACE FUNCTION propagate_media_backdrops()
+-- RETURNS trigger AS $$
+-- BEGIN
+--     DELETE FROM assets WHERE id = OLD.asset_id;
+--     RETURN OLD;
+-- END;
+-- $$ LANGUAGE plpgsql;
+
+-- CREATE TRIGGER media_backdrops_propagate
 -- AFTER DELETE ON media_backdrops
--- FOR EACH ROW BEGIN
---     DELETE FROM assets WHERE id = old.asset_id;
--- END;
+-- FOR EACH ROW
+-- EXECUTE FUNCTION propagate_media_backdrops();
 
--- CREATE TRIGGER IF NOT EXISTS media_posters_propagate
--- AFTER DELETE ON media_posters
--- FOR EACH ROW BEGIN
---     DELETE FROM assets WHERE id = old.asset_id;
+
+-- 
+-- CREATE OR REPLACE FUNCTION propagate_media_posters()
+-- RETURNS trigger AS $$
+-- BEGIN
+--     DELETE FROM assets WHERE id = OLD.asset_id;
+--     RETURN OLD;
 -- END;
+-- $$ LANGUAGE plpgsql;
+
+-- CREATE TRIGGER media_posters_propagate
+-- AFTER DELETE ON media_posters
+-- FOR EACH ROW
+-- EXECUTE FUNCTION propagate_media_posters();
