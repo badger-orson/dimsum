@@ -17,38 +17,19 @@ const DB: &str = "dimsum";
 
 
 #[derive(sqlx::FromRow)]
-struct Dbcreated {id: i32}
-//create the Database from a file
-async fn create_schema_db(db: &Db, file: &str) -> Result<(), sqlx::Error> {
-    
-    let content = fs::read_to_string(file).map_err(|ex| {
-        println!("Error reading {} (cause: {:?} )", file, ex);
-        ex
-    })?;
-
-        // Split the string at ";" then move to next sql statement store in vector
-        let sqls: Vec<&str> = content.split(";").collect();
-
-        for sql in sqls {
-            println!("{sql}");
-            match sqlx::query(&sql).execute(db).await {
-                
-                Ok(_) => println!("FILE CONTENTS: "),
-                Err(ex) => println!("WARNING pexec sqlfile '{}' Failed cause: {}",file, ex),
-            }
-        }
-    
-    Ok(())
+struct Dbcreated {
+    id: i32
 }
 
-async fn create_triggers(pool: &Pool<Postgres>, file: &str) -> Result<(),sqlx::Error> {
+//Read SQL from a file to use in DB Creation
+async fn read_sql_file(pool: &Pool<Postgres>, file: &str, delimiter: &str) -> Result<(),sqlx::Error> {
 
     let content = fs::read_to_string(file).map_err(| ex| {
         println!("Error reading {} (reason:{:?})", file, ex);
         ex
     })?;
 
-    let sqls: Vec<&str> = content.split("--").collect();
+    let sqls: Vec<&str> = content.split(delimiter).collect();
 
     for sql in sqls {
         println!("{sql}");
@@ -58,7 +39,7 @@ async fn create_triggers(pool: &Pool<Postgres>, file: &str) -> Result<(),sqlx::E
         }
     }
     
-    println!("Leaving Create Triggers...");
+    println!("Leaving {}...", file);
     Ok(())
 }
 
@@ -90,7 +71,6 @@ async fn table_exists(pool: &Pool<Postgres>, schema_name: &str, table_name: &str
     Ok(exists.unwrap_or(false))
 }
 
-
 #[tokio::main]
 async fn main() -> Result<(), sqlx::Error> {
 
@@ -119,8 +99,8 @@ async fn main() -> Result<(), sqlx::Error> {
         println!("Table exists!");
     } else {
         println!("Table does not exist.");
-        create_schema_db(&pool, SQL_CREATE).await?;
-        create_triggers(&pool, SQL_TRIGGERS).await?;
+        read_sql_file(&pool, SQL_CREATE, ";").await?;
+        read_sql_file(&pool, SQL_TRIGGERS, "--").await?;
         println!("IF YOU DO NOT ANY ERRORS, LOOKS LIKE WE MADE THE TABLES :D");
     }
 
