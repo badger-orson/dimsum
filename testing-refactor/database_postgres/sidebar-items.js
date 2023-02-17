@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":[["DB",""],["DB_PASS",""],["DB_USER",""],["SQL_CREATE",""],["SQL_DIR",""],["SQL_TRIGGERS",""]],"fn":[["create_connection_string",""],["create_schema_db",""],["create_triggers",""],["main",""],["table_exists",""]],"struct":[["Dbcreated",""]],"type":[["Db",""]]};
+window.SIDEBAR_ITEMS = {"constant":[["DB",""],["DB_PASS",""],["DB_USER",""],["SQL_CREATE",""],["SQL_DIR",""],["SQL_TRIGGERS",""]],"fn":[["create_connection_string",""],["main",""],["read_sql_file",""],["table_exists",""]],"struct":[["Dbcreated",""]],"type":[["Db",""]]};

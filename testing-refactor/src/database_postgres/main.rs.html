@@ -106,26 +106,6 @@
 <a href="#106" id="106">106</a>
 <a href="#107" id="107">107</a>
 <a href="#108" id="108">108</a>
-<a href="#109" id="109">109</a>
-<a href="#110" id="110">110</a>
-<a href="#111" id="111">111</a>
-<a href="#112" id="112">112</a>
-<a href="#113" id="113">113</a>
-<a href="#114" id="114">114</a>
-<a href="#115" id="115">115</a>
-<a href="#116" id="116">116</a>
-<a href="#117" id="117">117</a>
-<a href="#118" id="118">118</a>
-<a href="#119" id="119">119</a>
-<a href="#120" id="120">120</a>
-<a href="#121" id="121">121</a>
-<a href="#122" id="122">122</a>
-<a href="#123" id="123">123</a>
-<a href="#124" id="124">124</a>
-<a href="#125" id="125">125</a>
-<a href="#126" id="126">126</a>
-<a href="#127" id="127">127</a>
-<a href="#128" id="128">128</a>
 </pre><pre class="rust"><code>
 <span class="attr">#![allow(unused)]
 
@@ -145,38 +125,19 @@
 
 
 <span class="attr">#[derive(sqlx::FromRow)]
-</span><span class="kw">struct </span>Dbcreated {id: i32}
-<span class="comment">//create the Database from a file
-</span><span class="kw">async fn </span>create_schema_db(db: <span class="kw-2">&amp;</span>Db, file: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;(), sqlx::Error&gt; {
-    
-    <span class="kw">let </span>content = fs::read_to_string(file).map_err(|ex| {
-        <span class="macro">println!</span>(<span class="string">&quot;Error reading {} (cause: {:?} )&quot;</span>, file, ex);
-        ex
-    })<span class="question-mark">?</span>;
-
-        <span class="comment">// Split the string at &quot;;&quot; then move to next sql statement store in vector
-        </span><span class="kw">let </span>sqls: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = content.split(<span class="string">&quot;;&quot;</span>).collect();
-
-        <span class="kw">for </span>sql <span class="kw">in </span>sqls {
-            <span class="macro">println!</span>(<span class="string">&quot;{sql}&quot;</span>);
-            <span class="kw">match </span>sqlx::query(<span class="kw-2">&amp;</span>sql).execute(db).<span class="kw">await </span>{
-                
-                <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="macro">println!</span>(<span class="string">&quot;FILE CONTENTS: &quot;</span>),
-                <span class="prelude-val">Err</span>(ex) =&gt; <span class="macro">println!</span>(<span class="string">&quot;WARNING pexec sqlfile &#39;{}&#39; Failed cause: {}&quot;</span>,file, ex),
-            }
-        }
-    
-    <span class="prelude-val">Ok</span>(())
+</span><span class="kw">struct </span>Dbcreated {
+    id: i32
 }
 
-<span class="kw">async fn </span>create_triggers(pool: <span class="kw-2">&amp;</span>Pool&lt;Postgres&gt;, file: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;(),sqlx::Error&gt; {
+<span class="comment">//Read SQL from a file to use in DB Creation
+</span><span class="kw">async fn </span>read_sql_file(pool: <span class="kw-2">&amp;</span>Pool&lt;Postgres&gt;, file: <span class="kw-2">&amp;</span>str, delimiter: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;(),sqlx::Error&gt; {
 
     <span class="kw">let </span>content = fs::read_to_string(file).map_err(| ex| {
         <span class="macro">println!</span>(<span class="string">&quot;Error reading {} (reason:{:?})&quot;</span>, file, ex);
         ex
     })<span class="question-mark">?</span>;
 
-    <span class="kw">let </span>sqls: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = content.split(<span class="string">&quot;--&quot;</span>).collect();
+    <span class="kw">let </span>sqls: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = content.split(delimiter).collect();
 
     <span class="kw">for </span>sql <span class="kw">in </span>sqls {
         <span class="macro">println!</span>(<span class="string">&quot;{sql}&quot;</span>);
@@ -186,7 +147,7 @@
         }
     }
     
-    <span class="macro">println!</span>(<span class="string">&quot;Leaving Create Triggers...&quot;</span>);
+    <span class="macro">println!</span>(<span class="string">&quot;Leaving {}...&quot;</span>, file);
     <span class="prelude-val">Ok</span>(())
 }
 
@@ -218,7 +179,6 @@
     <span class="prelude-val">Ok</span>(exists.unwrap_or(<span class="bool-val">false</span>))
 }
 
-
 <span class="attr">#[tokio::main]
 </span><span class="kw">async fn </span>main() -&gt; <span class="prelude-ty">Result</span>&lt;(), sqlx::Error&gt; {
 
@@ -247,8 +207,8 @@
         <span class="macro">println!</span>(<span class="string">&quot;Table exists!&quot;</span>);
     } <span class="kw">else </span>{
         <span class="macro">println!</span>(<span class="string">&quot;Table does not exist.&quot;</span>);
-        create_schema_db(<span class="kw-2">&amp;</span>pool, SQL_CREATE).<span class="kw">await</span><span class="question-mark">?</span>;
-        create_triggers(<span class="kw-2">&amp;</span>pool, SQL_TRIGGERS).<span class="kw">await</span><span class="question-mark">?</span>;
+        read_sql_file(<span class="kw-2">&amp;</span>pool, SQL_CREATE, <span class="string">&quot;;&quot;</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+        read_sql_file(<span class="kw-2">&amp;</span>pool, SQL_TRIGGERS, <span class="string">&quot;--&quot;</span>).<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="macro">println!</span>(<span class="string">&quot;IF YOU DO NOT ANY ERRORS, LOOKS LIKE WE MADE THE TABLES :D&quot;</span>);
     }
 
