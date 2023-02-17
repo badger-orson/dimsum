@@ -8,7 +8,8 @@ use sqlx::{FromRow, Row, Pool, Postgres};
 pub type Db = Pool<Postgres>;
 
 const SQL_DIR: &str = "src/sql/";
-const SQL_RECREATE: &str = "src/sql/00-create-ripple-schema.sql";
+const SQL_CREATE: &str = "src/sql/00-create-ripple-schema.sql";
+const SQL_TRIGGERS: &str = "src/sql/01-create-ripple-triggers.sql";
 
 const DB_USER: &str = "badger";
 const DB_PASS: &str = "badger";
@@ -37,6 +38,27 @@ async fn create_schema_db(db: &Db, file: &str) -> Result<(), sqlx::Error> {
             }
         }
     
+    Ok(())
+}
+
+async fn create_triggers(pool: &Pool<Postgres>, file: &str) -> Result<(),sqlx::Error> {
+
+    let content = fs::read_to_string(file).map_err(| ex| {
+        println!("Error reading {} (reason:{:?})", file, ex);
+        ex
+    })?;
+
+    let sqls: Vec<&str> = content.split("--").collect();
+
+    for sql in sqls {
+        println!("{sql}");
+        match sqlx::query(&sql).execute(pool).await {
+            Ok(..) => println!("Trigger Contents: "),
+            Err(ex) => println!("Warning pexec triggers '{}' failed because: {}", file, ex),
+        }
+    }
+    
+    println!("Leaving Create Triggers...");
     Ok(())
 }
 
@@ -97,7 +119,8 @@ async fn main() -> Result<(), sqlx::Error> {
         println!("Table exists!");
     } else {
         println!("Table does not exist.");
-        create_schema_db(&pool, SQL_RECREATE).await?;
+        create_schema_db(&pool, SQL_CREATE).await?;
+        create_triggers(&pool, SQL_TRIGGERS).await?;
         println!("IF YOU DO NOT ANY ERRORS, LOOKS LIKE WE MADE THE TABLES :D");
     }
 
