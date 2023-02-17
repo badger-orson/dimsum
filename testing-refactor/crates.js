@@ -1,1 +1,1 @@
-window.ALL_CRATES = ["auth","database","dim","events"];
+window.ALL_CRATES = ["auth","database","database_postgres","dim","events"];

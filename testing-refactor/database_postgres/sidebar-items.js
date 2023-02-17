@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":[["DB",""],["DB_PASS",""],["DB_USER",""],["SQL_DIR",""],["SQL_RECREATE",""]],"fn":[["create_connection_string",""],["create_schema_db",""],["main",""],["table_exists",""]],"struct":[["Dbcreated",""]],"type":[["Db",""]]};
