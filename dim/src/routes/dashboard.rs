@@ -2,22 +2,22 @@ use crate::core::DbConnection;
 use crate::errors;
 use crate::json;
 
-use database::episode::Episode;
-use database::genre::*;
-use database::library::MediaType;
-use database::media::Media;
-use database::mediafile::MediaFile;
-use database::progress::Progress;
+use dim_database::episode::Episode;
+use dim_database::genre::*;
+use dim_database::library::MediaType;
+use dim_database::media::Media;
+use dim_database::mediafile::MediaFile;
+use dim_database::progress::Progress;
 
-use database::user::User;
+use dim_database::user::User;
 use serde_json::Value;
 
 use warp::reply;
 
 pub mod filters {
-    use database::DbConnection;
+    use dim_database::DbConnection;
 
-    use database::user::User;
+    use dim_database::user::User;
     use warp::reject;
     use warp::Filter;
 
@@ -25,24 +25,18 @@ pub mod filters {
 
     use super::super::global_filters::with_state;
 
-    use tokio::runtime::Handle as TokioHandle;
-
     pub fn dashboard(
         conn: DbConnection,
-        rt: tokio::runtime::Handle,
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path!("api" / "v1" / "dashboard")
             .and(warp::get())
             .and(with_auth(conn.clone()))
             .and(with_state::<DbConnection>(conn))
-            .and(with_state::<TokioHandle>(rt))
-            .and_then(
-                |user: User, conn: DbConnection, rt: TokioHandle| async move {
-                    super::dashboard(conn, user, rt)
-                        .await
-                        .map_err(|e| reject::custom(e))
-                },
-            )
+            .and_then(|user: User, conn: DbConnection| async move {
+                super::dashboard(conn, user, tokio::runtime::Handle::current())
+                    .await
+                    .map_err(|e| reject::custom(e))
+            })
     }
 
     pub fn banners(
@@ -153,7 +147,7 @@ pub async fn banners(conn: DbConnection, user: User) -> Result<impl warp::Reply,
 }
 
 async fn banner_for_movie(
-    conn: &mut database::Transaction<'_>,
+    conn: &mut dim_database::Transaction<'_>,
     user: &User,
     media: &Media,
 ) -> Result<Value, errors::DimError> {
@@ -199,7 +193,7 @@ async fn banner_for_movie(
 }
 
 async fn banner_for_show(
-    conn: &mut database::Transaction<'_>,
+    conn: &mut dim_database::Transaction<'_>,
     user: &User,
     media: &Media,
 ) -> Result<Value, errors::DimError> {

@@ -1,7 +1,7 @@
 <h1 align="center">Dim</h1>
 
 ![Dashboard](docs/design/dashboard.jpg)
-[![Discord](https://img.shields.io/discord/834495310332035123)](http://discord.gg/YJCrFTykQ4)
+[![Discord](https://img.shields.io/discord/834495310332035123)](https://discord.gg/dusk-labs)
 
 Dim is a self-hosted media manager. With minimal setup, Dim will organize and beautify your media collections, letting you access and play them anytime from anywhere.
 
@@ -36,6 +36,7 @@ This name "media" is arbitrary and you can choose whatever you like.
 ```
 docker run -d -p 8000:8000/tcp -v $HOME/.config/dim:/opt/dim/config -v /media:/media:ro ghcr.io/dusk-labs/dim:dev
 ```
+Mutiarch image resides at `ghcr.io/dusk-labs/dim:master`
 
 To use hardware acceleration, mount the relevant device:
 

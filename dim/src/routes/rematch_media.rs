@@ -1,7 +1,6 @@
 use crate::core::DbConnection;
 use crate::core::EventTx;
 use crate::errors::*;
-use crate::external::ExternalQueryIntoShow;
 use crate::scanner::movie;
 use crate::scanner::parse_filenames;
 use crate::scanner::tv_show;
@@ -13,8 +12,10 @@ use super::media::TV_PROVIDER;
 
 use std::sync::Arc;
 
-use database::library::MediaType;
-use database::mediafile::MediaFile;
+use dim_database::library::MediaType;
+use dim_database::mediafile::MediaFile;
+
+use dim_extern_api::ExternalQueryIntoShow;
 
 use tracing::error;
 use tracing::info;
@@ -25,8 +26,8 @@ pub mod filters {
     use crate::core::EventTx;
     use crate::routes::global_filters::with_auth;
     use crate::routes::global_filters::with_state;
-    use database::user::User;
-    use database::DbConnection;
+    use dim_database::user::User;
+    use dim_database::DbConnection;
     use serde::Deserialize;
 
     use warp::reject;
@@ -115,7 +116,7 @@ pub async fn rematch_media(
     drop(tx);
 
     let mut lock = conn.writer().lock_owned().await;
-    let mut tx = database::write_tx(&mut lock).await?;
+    let mut tx = dim_database::write_tx(&mut lock).await?;
 
     for mediafile in mediafiles {
         let Some((_, metadata)) = parse_filenames(IntoIterator::into_iter([&mediafile.target_file])).pop() else {

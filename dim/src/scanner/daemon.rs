@@ -1,5 +1,5 @@
 use crate::core::EventTx;
-use crate::external::ExternalQueryIntoShow;
+use dim_extern_api::ExternalQueryIntoShow;
 
 use super::movie;
 use super::tv_show;
@@ -8,32 +8,32 @@ use super::MediaMatcher;
 use std::path::PathBuf;
 use std::sync::mpsc;
 use std::sync::Arc;
-use std::time::Duration;
 
-use database::library::Library;
-use database::library::MediaType;
-use database::media::Media;
-use database::mediafile::MediaFile;
-use database::mediafile::UpdateMediaFile;
-use database::DbConnection;
+use dim_database::library::Library;
+use dim_database::library::MediaType;
+use dim_database::media::Media;
+use dim_database::mediafile::MediaFile;
+use dim_database::mediafile::UpdateMediaFile;
+use dim_database::DbConnection;
 
-use notify::DebouncedEvent;
+use notify::Config;
+use notify::EventKind;
 use notify::RecommendedWatcher;
 use notify::RecursiveMode;
 use notify::Watcher;
 
+use notify::event::ModifyKind;
+use notify::event::RenameMode;
 use tokio::sync::mpsc::UnboundedReceiver;
 
 use displaydoc::Display;
 use thiserror::Error;
-use tracing::debug;
-use tracing::error;
-use tracing::warn;
+use tracing::{debug, error, warn};
 
 #[derive(Display, Debug, Error)]
 pub enum FsWatcherError {
     /// A database error has occured: {0:?}
-    DatabaseError(#[from] database::DatabaseError),
+    DatabaseError(#[from] dim_database::DatabaseError),
     /// A error with notify has occured": {0:?}
     NotifyError(#[from] notify::Error),
 }
@@ -84,13 +84,38 @@ impl FsWatcher {
             Library::get_one(&mut tx, self.library_id).await?
         };
 
-        let (mut rx, _watcher) = async_watch(library.locations.iter())?;
+        let (mut rx, _watcher) = spawn_file_watcher(library.locations.as_slice())?;
 
-        while let Some(e) = rx.recv().await {
-            match e {
-                DebouncedEvent::Create(path) => self.handle_create(path).await,
-                DebouncedEvent::Rename(from, to) => self.handle_rename(from, to).await,
-                DebouncedEvent::Remove(path) => self.handle_remove(path).await,
+        while let Some(ev) = rx.recv().await {
+            let mut ev = match ev {
+                Ok(ev) => ev,
+                Err(err) => {
+                    error!(?err, "notify event error");
+                    continue;
+                }
+            };
+
+            match ev.kind {
+                EventKind::Create(_) => {
+                    for path in ev.paths {
+                        self.handle_create(path).await
+                    }
+                }
+                EventKind::Modify(ModifyKind::Name(RenameMode::Both)) => {
+                    if ev.paths.len() != 2 {
+                        debug!(paths = ?ev.paths, "rename event with both names does not contain exactly two paths");
+                        continue;
+                    } else {
+                        assert!(ev.paths.len() == 2);
+                    }
+                    let [from, to] = [(); 2].map(|()| ev.paths.remove(0));
+                    self.handle_rename(from, to).await
+                }
+                EventKind::Remove(_) => {
+                    for path in ev.paths {
+                        self.handle_remove(path).await
+                    }
+                }
                 event => debug!("Tried to handle unmatched event {:?}", event),
             }
         }
@@ -113,7 +138,7 @@ impl FsWatcher {
                 super::insert_mediafiles(&mut self.conn, self.library_id, vec![path.clone()]).await
             {
                 let mut lock = self.conn.writer().lock_owned().await;
-                let mut tx = database::write_tx(&mut lock).await.unwrap();
+                let mut tx = dim_database::write_tx(&mut lock).await.unwrap();
 
                 if let Err(e) = self
                     .matcher
@@ -153,7 +178,7 @@ impl FsWatcher {
         };
 
         let mut lock = self.conn.writer().lock_owned().await;
-        let mut tx = match database::write_tx(&mut lock).await {
+        let mut tx = match dim_database::write_tx(&mut lock).await {
             Ok(x) => x,
             Err(e) => {
                 error!(reason = ?e, "Failed to create transaction.");
@@ -218,7 +243,7 @@ impl FsWatcher {
         };
 
         let mut lock = self.conn.writer().lock_owned().await;
-        let mut tx = match database::write_tx(&mut lock).await {
+        let mut tx = match dim_database::write_tx(&mut lock).await {
             Ok(x) => x,
             Err(e) => {
                 error!(reason = ?e, "Failed to create transaction.");
@@ -248,16 +273,26 @@ impl FsWatcher {
     }
 }
 
-// FIXME(val): This code is pretty cursed. We should replace this with native async when notify==5.0.0
-// comes out.
-pub fn async_watch(
-    paths: impl Iterator<Item = impl AsRef<str>>,
-) -> Result<(UnboundedReceiver<DebouncedEvent>, RecommendedWatcher), FsWatcherError> {
+pub fn spawn_file_watcher<S>(
+    paths: &[S],
+) -> Result<
+    (
+        UnboundedReceiver<notify::Result<notify::Event>>,
+        RecommendedWatcher,
+    ),
+    FsWatcherError,
+>
+where
+    S: AsRef<str>,
+{
     let (tx, rx) = mpsc::channel();
-    let mut watcher = <RecommendedWatcher as Watcher>::new(tx, Duration::from_secs(5))?;
+    let mut watcher = <RecommendedWatcher as Watcher>::new(tx, Config::default())?;
 
     for path in paths {
-        watcher.watch(path.as_ref(), RecursiveMode::Recursive)?;
+        watcher.watch(
+            std::path::Path::new(path.as_ref()),
+            RecursiveMode::Recursive,
+        )?;
     }
 
     let (async_tx, async_rx) = tokio::sync::mpsc::unbounded_channel();

@@ -11,10 +11,10 @@ use crate::streaming::get_qualities;
 use crate::streaming::level_to_tag;
 use crate::utils::quality_to_label;
 
-use database::mediafile::MediaFile;
-use database::user::DefaultVideoQuality;
-use database::user::User;
-use database::user::UserSettings;
+use dim_database::mediafile::MediaFile;
+use dim_database::user::DefaultVideoQuality;
+use dim_database::user::User;
+use dim_database::user::UserSettings;
 
 use nightfall::error::NightfallError;
 use nightfall::profiles::*;
@@ -44,9 +44,8 @@ pub mod filters {
     use crate::core::StateManager;
     use crate::errors::StreamingErrors;
     use crate::stream_tracking::StreamTracking;
-    use crate::warp_unwrap;
 
-    use database::user::User;
+    use dim_database::user::User;
     use uuid::Uuid;
 
     use super::super::global_filters::with_auth;
@@ -81,7 +80,7 @@ pub mod filters {
                  stream_tracking: StreamTracking| async move {
                     let gid = gid.and_then(|x| Uuid::parse_str(x.as_str()).ok());
 
-                    warp_unwrap!(
+                    dim_utils::warp_unwrap!(
                         super::return_virtual_manifest(
                             state,
                             stream_tracking,
@@ -294,7 +293,7 @@ pub async fn return_virtual_manifest(
     if let Some(gid) = gid {
         return Ok(reply::json(&json!({
             "tracks": stream_tracking.get_for_gid(&gid).await,
-            "gid": gid.to_hyphenated().to_string(),
+            "gid": gid.as_hyphenated().to_string(),
         })));
     }
 
@@ -347,7 +346,7 @@ pub async fn return_virtual_manifest(
 
     Ok(reply::json(&json!({
         "tracks": stream_tracking.get_for_gid(&gid).await,
-        "gid": gid.to_hyphenated().to_string(),
+        "gid": gid.as_hyphenated().to_string(),
     })))
 }
 
@@ -512,7 +511,7 @@ pub async fn create_video(
                 24,
             ));
 
-        let label = quality_to_label(quality, Some(bitrate));
+        let label = quality_to_label(quality.bitrate, quality.height, Some(bitrate));
 
         // TODO: This code will not work correctly if there are similar resolutions with different
         // brates.

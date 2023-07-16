@@ -16,6 +16,7 @@
 //! happens [`DatabaseError`] will be returned.
 //!
 //! [`DatabaseError`]: crate::errors::DimError::DatabaseError
+#![warn(warnings)]
 pub mod auth;
 pub mod dashboard;
 pub mod general;
@@ -30,13 +31,14 @@ pub mod statik;
 pub mod stream;
 pub mod tv;
 pub mod user;
+pub mod websocket;
 
 #[doc(hidden)]
 pub mod global_filters {
     use crate::errors;
     use crate::errors::DimError;
-    use database::user::User;
-    use database::DbConnection;
+    use dim_database::user::User;
+    use dim_database::DbConnection;
     use http::header::AUTHORIZATION;
     use warp::reject;
     use warp::Rejection;
@@ -48,7 +50,7 @@ pub mod global_filters {
 
     pub fn with_db(
         conn: DbConnection,
-    ) -> impl Filter<Extract = (DbConnection,), Error = Infallible> + Clone {
+    ) -> impl Filter<Extract = (DbConnection,), Error = Infallible> + Clone + 'static {
         warp::any().map(move || conn.clone())
     }
 
@@ -72,7 +74,7 @@ pub mod global_filters {
                         }))
                     }
                 };
-                let id = database::user::Login::verify_cookie(x)
+                let id = dim_database::user::Login::verify_cookie(x)
                     .map_err(|e| reject::custom(DimError::CookieError(e)))?;
 
                 User::get_by_id(&mut tx, id)

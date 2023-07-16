@@ -3,11 +3,13 @@ use super::super::mediafile::InsertBatch;
 use super::super::mediafile::MediafileCreator;
 use super::super::parse_filenames;
 
-use database::library::InsertableLibrary;
-use database::library::MediaType;
-use database::mediafile::InsertableMediaFile;
-use database::mediafile::MediaFile;
+use dim_database::library::InsertableLibrary;
+use dim_database::library::MediaType;
+use dim_database::mediafile::InsertableMediaFile;
+use dim_database::mediafile::MediaFile;
 
+use futures::stream::FuturesUnordered;
+use futures::StreamExt;
 use itertools::Itertools;
 
 use std::future::Future;
@@ -16,12 +18,12 @@ use core::pin::Pin;
 
 use futures::FutureExt;
 
-use new_xtra::spawn::Tokio;
-use new_xtra::Actor;
+use xtra::spawn::Tokio;
+use xtra::Actor;
 
-pub(crate) async fn create_library(conn: &mut database::DbConnection) -> i64 {
+pub(crate) async fn create_library(conn: &mut dim_database::DbConnection) -> i64 {
     let mut lock = conn.writer().lock_owned().await;
-    let mut tx = database::write_tx(&mut lock).await.unwrap();
+    let mut tx = dim_database::write_tx(&mut lock).await.unwrap();
 
     let id = InsertableLibrary {
         name: "Tests".to_string(),
@@ -44,7 +46,7 @@ async fn test_construct_mediafile() {
         .collect::<Vec<String>>();
     let (_tempdir, files) = super::temp_dir_symlink(files.into_iter(), super::TEST_MP4_PATH);
 
-    let mut conn = database::get_conn_memory()
+    let mut conn = dim_database::get_conn_memory()
         .await
         .expect("Failed to obtain a in-memory db pool.");
     let library = create_library(&mut conn).await;
@@ -114,12 +116,12 @@ async fn test_construct_mediafile() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_multiple_instances() {
-    let files = (0..2048)
+    let files = (0..1024)
         .map(|i| format!("Movie{i}.mkv"))
         .collect::<Vec<String>>();
     let (_tempdir, files) = super::temp_dir_symlink(files.into_iter(), super::TEST_MP4_PATH);
 
-    let mut conn = database::get_conn_memory()
+    let mut conn = dim_database::get_conn_memory()
         .await
         .expect("Failed to obtain a in-memory db pool.");
     let library = create_library(&mut conn).await;
@@ -130,27 +132,17 @@ async fn test_multiple_instances() {
 
     assert_eq!(parsed.len(), files.len());
 
-    let insertable_futures =
-        parsed
-            .into_iter()
-            .map(|(path, meta)| instance.construct_mediafile(path, meta[0].clone()).boxed())
-            .chunks(5)
-            .into_iter()
-            .map(|chunk| chunk.collect())
-            .collect::<Vec<
-                Vec<
-                    Pin<Box<dyn Future<Output = Result<InsertableMediaFile, CreatorError>> + Send>>,
-                >,
-            >>();
-
     let mut insertables = vec![];
 
-    for chunk in insertable_futures.into_iter() {
-        let results: Vec<Result<InsertableMediaFile, CreatorError>> =
-            futures::future::join_all(chunk).await;
-
-        for result in results {
-            insertables.push(result.expect("Failed to create insertable."));
+    for mut chunk in parsed
+        .into_iter()
+        .map(|(path, meta)| instance.construct_mediafile(path, meta[0].clone()))
+        .chunks(16)
+        .into_iter()
+        .map(|ch| ch.collect::<FuturesUnordered<_>>())
+    {
+        while let Some(res) = chunk.next().await {
+            insertables.push(res.expect("Failed to create insertable."));
         }
     }
 

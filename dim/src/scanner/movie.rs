@@ -1,9 +1,9 @@
 #![allow(unstable_name_collisions)]
 
-use crate::external::ExternalMedia;
-use crate::external::ExternalQueryIntoShow;
 use crate::inspect::ResultExt;
 use crate::scanner::format_path;
+use dim_extern_api::ExternalMedia;
+use dim_extern_api::ExternalQueryIntoShow;
 
 use super::MediaMatcher;
 use super::WorkUnit;
@@ -12,17 +12,17 @@ use async_trait::async_trait;
 use chrono::prelude::Utc;
 use chrono::Datelike;
 
-use database::asset::InsertableAsset;
-use database::genre::Genre;
-use database::genre::InsertableGenre;
-use database::genre::InsertableGenreMedia;
-use database::library::MediaType;
-use database::media::InsertableMedia;
-use database::media::Media;
-use database::mediafile::MediaFile;
-use database::mediafile::UpdateMediaFile;
-use database::movie::Movie;
-use database::Transaction;
+use dim_database::asset::InsertableAsset;
+use dim_database::genre::Genre;
+use dim_database::genre::InsertableGenre;
+use dim_database::genre::InsertableGenreMedia;
+use dim_database::library::MediaType;
+use dim_database::media::InsertableMedia;
+use dim_database::media::Media;
+use dim_database::mediafile::MediaFile;
+use dim_database::mediafile::UpdateMediaFile;
+use dim_database::movie::Movie;
+use dim_database::Transaction;
 
 use serde::Serialize;
 use std::sync::Arc;
@@ -37,28 +37,28 @@ use thiserror::Error;
 #[derive(Clone, Debug, Display, Error, Serialize)]
 pub enum Error {
     /// Failed to insert poster into database: {0:?}
-    PosterInsert(#[serde(skip)] database::DatabaseError),
+    PosterInsert(#[serde(skip)] dim_database::DatabaseError),
     /// Failed to insert backdrop into database: {0:?}
-    BackdropInsert(#[serde(skip)] database::DatabaseError),
+    BackdropInsert(#[serde(skip)] dim_database::DatabaseError),
     /// Failed to decouple genres from media: {0:?}
-    GenreDecouple(#[serde(skip)] database::DatabaseError),
+    GenreDecouple(#[serde(skip)] dim_database::DatabaseError),
     /// Failed to create or get genre: {0:?}
-    GetOrInsertGenre(#[serde(skip)] database::DatabaseError),
+    GetOrInsertGenre(#[serde(skip)] dim_database::DatabaseError),
     /// Failed to attach genre to media object: {0:?}
-    CoupleGenre(#[serde(skip)] database::DatabaseError),
+    CoupleGenre(#[serde(skip)] dim_database::DatabaseError),
     /// Failed to update mediafile to point to new parent: {0:?}
-    UpdateMediafile(#[serde(skip)] database::DatabaseError),
+    UpdateMediafile(#[serde(skip)] dim_database::DatabaseError),
     /// Failed to get children count for movie: {0:?}
-    ChildrenCount(#[serde(skip)] database::DatabaseError),
+    ChildrenCount(#[serde(skip)] dim_database::DatabaseError),
     /// Failed to cleanup child-less parent: {0:?}
-    ChildCleanup(#[serde(skip)] database::DatabaseError),
+    ChildCleanup(#[serde(skip)] dim_database::DatabaseError),
     /// Failed to insert or get media object: {0:?}
-    GetOrInsertMedia(#[serde(skip)] database::DatabaseError),
+    GetOrInsertMedia(#[serde(skip)] dim_database::DatabaseError),
 }
 
 pub fn asset_from_url(url: &str) -> Option<InsertableAsset> {
     let url = Url::parse(url).ok()?;
-    let filename = uuid::Uuid::new_v4().to_hyphenated().to_string();
+    let filename = uuid::Uuid::new_v4().as_hyphenated().to_string();
     let local_path = format_path(Some(format!("{filename}.jpg")));
 
     Some(InsertableAsset {
@@ -285,19 +285,19 @@ mod tests {
     use super::super::tests::mediafile::create_library;
 
     use super::MovieMatcher;
-    use crate::external::ExternalMedia;
+    use dim_extern_api::ExternalMedia;
 
     use chrono::TimeZone;
-    use database::genre::Genre;
-    use database::media::Media;
-    use database::mediafile::InsertableMediaFile;
-    use database::mediafile::MediaFile;
-    use database::movie::Movie;
-    use database::rw_pool::write_tx;
+    use dim_database::genre::Genre;
+    use dim_database::media::Media;
+    use dim_database::mediafile::InsertableMediaFile;
+    use dim_database::mediafile::MediaFile;
+    use dim_database::movie::Movie;
+    use dim_database::rw_pool::write_tx;
 
     #[tokio::test(flavor = "multi_thread")]
     async fn match_to_movie() {
-        let mut conn = database::get_conn_memory()
+        let mut conn = dim_database::get_conn_memory()
             .await
             .expect("Failed to obtain a in-memory db pool.");
         let library = create_library(&mut conn).await;
@@ -324,7 +324,7 @@ mod tests {
             external_id: "123".into(),
             title: "Test Title".into(),
             description: Some("test description".into()),
-            release_date: Some(chrono::Utc.ymd(1983, 1, 10).and_hms(0, 0, 0)),
+            release_date: chrono::Utc.with_ymd_and_hms(1983, 1, 10, 0, 0, 0).single(),
             posters: vec![],
             backdrops: vec![],
             genres: vec!["Comedy".into()],
@@ -426,7 +426,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn rematch_new_genres() {
-        let mut conn = database::get_conn_memory()
+        let mut conn = dim_database::get_conn_memory()
             .await
             .expect("Failed to obtain a in-memory db pool.");
         let library = create_library(&mut conn).await;
@@ -490,7 +490,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn mass_rematch() {
-        let mut conn = database::get_conn_memory()
+        let mut conn = dim_database::get_conn_memory()
             .await
             .expect("Failed to obtain a in-memory db pool.");
         let library = create_library(&mut conn).await;
@@ -529,7 +529,7 @@ mod tests {
             external_id: "123".into(),
             title: "Test Title".into(),
             description: Some("test description".into()),
-            release_date: Some(chrono::Utc.ymd(1983, 1, 10).and_hms(0, 0, 0)),
+            release_date: chrono::Utc.with_ymd_and_hms(1983, 1, 10, 0, 0, 0).single(),
             posters: vec![],
             backdrops: vec![],
             genres: vec!["Comedy".into()],
@@ -589,7 +589,7 @@ mod tests {
     /// rematched which will change the id of the object.
     #[tokio::test(flavor = "multi_thread")]
     async fn refresh_metadata() {
-        let mut conn = database::get_conn_memory()
+        let mut conn = dim_database::get_conn_memory()
             .await
             .expect("Failed to obtain a in-memory db pool.");
         let library = create_library(&mut conn).await;
@@ -616,7 +616,7 @@ mod tests {
             external_id: "123".into(),
             title: "Test Title".into(),
             description: Some("test description".into()),
-            release_date: Some(chrono::Utc.ymd(1983, 1, 10).and_hms(0, 0, 0)),
+            release_date: chrono::Utc.with_ymd_and_hms(1983, 1, 10, 0, 0, 0).single(),
             posters: vec![],
             backdrops: vec![],
             genres: vec!["Comedy".into()],

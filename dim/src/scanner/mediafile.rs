@@ -1,15 +1,15 @@
 //! Module contains all the code that creates and inserts basic mediafiles into the database.
 
-use crate::external::filename::Metadata;
 use crate::streaming::ffprobe::FFProbeCtx;
 use crate::streaming::FFPROBE_BIN;
+use dim_extern_api::filename::Metadata;
 
 use async_trait::async_trait;
 
-use database::mediafile::InsertableMediaFile;
-use database::mediafile::MediaFile;
-use database::DatabaseError;
-use database::DbConnection;
+use dim_database::mediafile::InsertableMediaFile;
+use dim_database::mediafile::MediaFile;
+use dim_database::DatabaseError;
+use dim_database::DbConnection;
 use displaydoc::Display;
 
 use serde::Serialize;
@@ -26,7 +26,7 @@ use tracing::Instrument;
 
 use thiserror::Error;
 
-use new_xtra::prelude::*;
+use xtra::prelude::*;
 
 /// This semaphore is necessary so that we dont create too many instances of `MediafileCreator`.
 /// Having too many instances would not make sense as we can support only so many instances without
@@ -201,7 +201,7 @@ impl MediafileCreator {
         let mut work_done = vec![];
 
         let mut lock = self.conn.writer().lock_owned().await;
-        let mut tx = database::write_tx(&mut lock)
+        let mut tx = dim_database::write_tx(&mut lock)
             .await
             .map_err(|e| Error::FailedToAcquireWriter(e.into()))?;
 
@@ -239,19 +239,21 @@ impl MediafileCreator {
 }
 
 #[async_trait]
-impl Actor for MediafileCreator {
-    type Stop = ();
-
-    async fn stopped(self) {}
-}
+impl Actor for MediafileCreator {}
 
 pub struct InsertBatch(pub Vec<InsertableMediaFile>);
 
+impl Message for InsertBatch {
+    type Result = Result<Vec<MediaFile>>;
+}
+
 #[async_trait]
 impl Handler<InsertBatch> for MediafileCreator {
-    type Return = Result<Vec<MediaFile>>;
-
-    async fn handle(&mut self, batch: InsertBatch, _: &mut Context<Self>) -> Self::Return {
+    async fn handle(
+        &mut self,
+        batch: InsertBatch,
+        _: &mut Context<Self>,
+    ) -> <InsertBatch as Message>::Result {
         self.insert_batch(batch.0.iter()).await
     }
 }
